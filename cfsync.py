@@ -5,11 +5,6 @@ api_key="YOUR_KEY_HERE"
 auth_url="https://lon.auth.api.rackspacecloud.com/v1.0"
 dest_container="backups"
 
-api_username="welbymcrob"
-api_key="dfcda55244575e2f6e59f035a481a94a"
-auth_url="https://lon.auth.api.rackspacecloud.com/v1.0"
-dest_container="backups"
-
 #############
 ## DO NOT EDIT AFTER THIS LINE
 ##############
