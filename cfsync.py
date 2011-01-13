@@ -54,16 +54,21 @@ for local_file in local_file_list:
         local_file_size = os.stat(local_file).st_size/1024
         #check to see if we're in remote_file_list
         #if local_file in remote_file_list
-        if len(remote_file_list[local_file]['name']) > 0:
-            #has it been modified
-            if remote_file_list[local_file]['last_modified'] < os.stat(local_file).st_mtime :
-                print "Remote file is older, uploading %s (%dK) " % (local_file, local_file_size)
-                upload_cf(local_file)
-            elif remote_file_list[local_file]['hash'] != local_file_hash.hexdigest():
-                print "Remote file hash %s does not match local %s, uploading %s (%dK)" % (remote_file_list[local_file]['hash'], local_file_has.hexdigest(), local_file, local_file_size)
-                upload_cf(local_file)
+        try:
+	    if len(remote_file_list[local_file]['name']) > 0:
+                #has it been modified
+                if remote_file_list[local_file]['last_modified'] < os.stat(local_file).st_mtime :
+                    print "Remote file is older, uploading %s (%dK) " % (local_file, local_file_size)
+                    upload_cf(local_file)
+                elif remote_file_list[local_file]['hash'] != local_file_hash.hexdigest():
+                    print "Remote file hash %s does not match local %s, uploading %s (%dK)" % (remote_file_list[local_file]['hash'], local_file_has.hexdigest(), local_file, local_file_size)
+                    upload_cf(local_file)
+                else:
+                    print "Remote file hash and date match, skiping %s" % (local_file)
             else:
-                print "Remote file hash and date match, skiping %s" % (local_file)
-        else:
-            print "Remote file does not exist, uploading %s (%dK)" % (local_file, local_file_size)
-            upload_cf(local_file)
+	        # You shouldn't get here! but lets upload, just incase
+		print "this shouldn't have happened!"
+	        upload_cf(local_file)
+        except KeyError:
+                print "Remote file does not exist, uploading %s (%dK)" % (local_file, local_file_size)
+                upload_cf(local_file)
