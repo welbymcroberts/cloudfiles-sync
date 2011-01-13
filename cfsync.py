@@ -64,7 +64,7 @@ for local_file in local_file_list:
                     print "Remote file hash %s does not match local %s, uploading %s (%dK)" % (remote_file_list[local_file]['hash'], local_file_has.hexdigest(), local_file, local_file_size)
                     upload_cf(local_file)
                 else:
-                    print "Remote file hash and date match, skiping %s" % (local_file)
+                    print "Remote file hash and date match, skipping %s" % (local_file)
             else:
 	        # You shouldn't get here! but lets upload, just incase
 		print "this shouldn't have happened!"
