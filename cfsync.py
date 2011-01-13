@@ -10,6 +10,7 @@ dest_container="backups"
 ##############
 import cloudfiles
 import sys,os
+import hashlib
 local_file_list = sys.stdin.readlines()
 
 #Setup the connection
@@ -30,30 +31,39 @@ except NameError:
     backup_container = cf.create_container(dest_container)
 
 # We've now got our container, lets get a file list
-remote_file_list = backup_container.list_objects_info()
+def build_remote_file_list(container):
+    remote_file_list = container.list_objects_info()
+    remotefiles = {}
+    for remote_file in remote_file_list:
+        remotefiles[remote_file['name']] = remote_file
+    return remotefiles
+
+remote_file_list = build_remote_file_list(backup_container)
+#from pprint import pprint as pp
+#pp(remote_file_list)
 
 
 def upload_cf(local_file):
     u = backup_container.create_object(local_file)
     u.load_from_filename(local_file)
-	#TODO compare hashes
 
 for local_file in local_file_list:
+        local_file_hash = hashlib.md5()
         local_file = local_file.rstrip()
-	local_file_size = os.stat(local_file).st_size/1024
+        local_file_hash.update(open(local_file,'rb').read())
+        local_file_size = os.stat(local_file).st_size/1024
         #check to see if we're in remote_file_list
-        #TODO make this a bit nicer, continuall itrations = bad
-        rf=0
-        for remote_file in remote_file_list:
-            if remote_file['name'] == local_file:
-                    rf = rf + 1
-                    if remote_file['last_modified'] < os.stat(local_file).st_mtime:
-                        print "Remote file is older, uploading %s (%dK)" % (local_file,local_file_size)
-                        upload_cf(local_file)
-                    else:
-                        print "Remote file is same age, skiping %s (%dK)" % (local_file,local_file_size)
-                    upload_cf(local_file)
-        if rf < 1:
-            print "Uploading to CF - %s (%dK)" % (local_file,local_file_size)
+        #if local_file in remote_file_list
+        if len(remote_file_list[local_file]['name']) > 0:
+            #has it been modified
+            if remote_file_list[local_file]['last_modified'] < os.stat(local_file).st_mtime :
+                print "Remote file is older, uploading %s (%dK) " % (local_file, local_file_size)
+                upload_cf(local_file)
+            elif remote_file_list[local_file]['hash'] != local_file_hash.hexdigest():
+                print "Remote file hash %s does not match local %s, uploading %s (%dK)" % (remote_file_list[local_file]['hash'], local_file_has.hexdigest(), local_file, local_file_size)
+                upload_cf(local_file)
+            else:
+                print "Remote file hash and date match, skiping %s" % (local_file)
+        else:
+            print "Remote file does not exist, uploading %s (%dK)" % (local_file, local_file_size)
             upload_cf(local_file)
-
