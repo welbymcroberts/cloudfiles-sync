@@ -61,10 +61,18 @@ remote_file_list = build_remote_file_list(backup_container)
 #from pprint import pprint as pp
 #pp(remote_file_list)
 
+def callback(done,total):
+    """This function does nothing more than print out a % completed to STDOUT"""
+    sys.stdout.write("\r %d completed of %d - %d%%" %(done,total, int((float(done)/float(total))*100)))
+    sys.stdout.flush()
+    if ( done == total ):
+        sys.stdout.write("\n")
+        sys.stdout.flush
 
 def upload_cf(local_file):
     u = backup_container.create_object(local_file)
-    u.load_from_filename(local_file)
+    u.load_from_filename(local_file,callback=callback)
+    callback(u.size,u.size)
 
 for local_file in local_file_list:
         local_file_hash = hashlib.md5()
@@ -80,7 +88,7 @@ for local_file in local_file_list:
                     upload_cf(local_file)
                 #is the md5 different locally to remotly
                 elif remote_file_list[local_file]['hash'] != local_file_hash.hexdigest():
-                    print "Remote file hash %s does not match local %s, uploading %s (%dK)" % (remote_file_list[local_file]['hash'], local_file_has.hexdigest(), local_file, local_file_size)
+                    print "Remote file hash %s does not match local %s, uploading %s (%dK)" % (remote_file_list[local_file]['hash'], local_file_hash.hexdigest(), local_file, local_file_size)
                     upload_cf(local_file)
                 else:
                     print "Remote file hash and date match, skipping %s" % (local_file)
