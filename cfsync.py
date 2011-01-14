@@ -11,6 +11,25 @@ dest_container="backups"
 import cloudfiles
 import sys,os
 import hashlib
+import ConfigParser 
+
+# Read in config
+config = ConfigParser.ConfigParser()
+
+# Read the system wide config
+config.read(['/etc/cfsync/cfsync.ini', os.path.expanduser('~/.cfsync.ini') ])
+
+#Ensure that the config exsits
+if len(config.get('api','key')) <8 or len(config.get('api','username')) <2:
+    print "Check you config in either ~/.cfsync.ini or /etc/cfsync/cfsync.ini"
+    sys.exit(2)
+
+#Check we've got an api_username
+api_username = config.get('api','username')
+api_key = config.get('api','key')
+auth_url = config.get('api','url')
+dest_container= config.get('destination','container')
+
 local_file_list = sys.stdin.readlines()
 
 #Setup the connection
