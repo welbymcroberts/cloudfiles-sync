@@ -79,6 +79,7 @@ def upload_cf(local_file):
 
 for local_file in local_file_list:
         if md5:
+	    import hashlib
 	    local_file_hash = hashlib.md5()
             local_file_hash.update(open(local_file,'rb').read())
         local_file = local_file.rstrip()
@@ -91,7 +92,7 @@ for local_file in local_file_list:
                     print "Remote file is older, uploading %s (%dK) " % (local_file, local_file_size)
                     upload_cf(local_file)
                 #is the md5 different locally to remotly
-                elif md5 && remote_file_list[local_file]['hash'] != local_file_hash.hexdigest():
+                elif (md5 and remote_file_list[local_file]['hash'] != local_file_hash.hexdigest()):
                     print "Remote file hash %s does not match local %s, uploading %s (%dK)" % (remote_file_list[local_file]['hash'], local_file_hash.hexdigest(), local_file, local_file_size)
                     upload_cf(local_file)
                 else:
