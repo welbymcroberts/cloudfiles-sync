@@ -12,6 +12,7 @@ import cloudfiles
 import sys,os
 import hashlib
 import ConfigParser 
+import math
 
 # Read in config
 config = ConfigParser.ConfigParser()
@@ -51,10 +52,22 @@ except NameError:
 
 # We've now got our container, lets get a file list
 def build_remote_file_list(container):
-    remote_file_list = container.list_objects_info()
+    runs = 0
+    last = ''
     remotefiles = {}
-    for remote_file in remote_file_list:
-        remotefiles[remote_file['name']] = remote_file
+    if ( container.object_count > 10000 ):
+        times = math.ceil(container.object_count/10000)
+    else:
+        times = 1
+    while runs < times:
+        if len(last) > 0:
+	    remote_file_list = container.list_objects_info(marker=last)
+	else:
+	    remote_file_list = container.list_objects_info()
+        for remote_file in remote_file_list:
+            remotefiles[remote_file['name']] = remote_file
+	    last = remote_file
+	runs = runs + 1
     return remotefiles
 
 remote_file_list = build_remote_file_list(backup_container)
