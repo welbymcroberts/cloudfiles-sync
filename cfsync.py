@@ -1,16 +1,5 @@
-api_username="YOUR_USERNAME_HERE"
-api_key="YOUR_KEY_HERE"
-# https://auth.api.rackspacecloud.com/v1.0 for the US 
-# https://lon.auth.api.rackspacecloud.com/v1.0 for the UK
-auth_url="https://lon.auth.api.rackspacecloud.com/v1.0"
-dest_container="backups"
-
-#############
-## DO NOT EDIT AFTER THIS LINE
-##############
 import cloudfiles
 import sys,os
-import hashlib
 import ConfigParser 
 import math
 
@@ -30,6 +19,7 @@ api_username = config.get('api','username')
 api_key = config.get('api','key')
 auth_url = config.get('api','url')
 dest_container= config.get('destination','container')
+md5 = config.get('destination','md5')
 
 local_file_list = sys.stdin.readlines()
 
@@ -81,16 +71,16 @@ def callback(done,total):
     if ( done == total ):
         sys.stdout.write("\n")
         sys.stdout.flush
-
 def upload_cf(local_file):
     u = backup_container.create_object(local_file)
     u.load_from_filename(local_file,callback=callback)
     callback(u.size,u.size)
 
 for local_file in local_file_list:
-        local_file_hash = hashlib.md5()
+        if md5:
+	    local_file_hash = hashlib.md5()
+            local_file_hash.update(open(local_file,'rb').read())
         local_file = local_file.rstrip()
-        local_file_hash.update(open(local_file,'rb').read())
         local_file_size = os.stat(local_file).st_size/1024
         #check to see if we're in remote_file_list
         try:
@@ -100,7 +90,7 @@ for local_file in local_file_list:
                     print "Remote file is older, uploading %s (%dK) " % (local_file, local_file_size)
                     upload_cf(local_file)
                 #is the md5 different locally to remotly
-                elif remote_file_list[local_file]['hash'] != local_file_hash.hexdigest():
+                elif md5 && remote_file_list[local_file]['hash'] != local_file_hash.hexdigest():
                     print "Remote file hash %s does not match local %s, uploading %s (%dK)" % (remote_file_list[local_file]['hash'], local_file_hash.hexdigest(), local_file, local_file_size)
                     upload_cf(local_file)
                 else:
