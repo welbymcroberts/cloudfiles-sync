@@ -56,12 +56,12 @@ def build_remote_file_list(container):
     last = ''
     remotefiles = {}
     if ( container.object_count > 10000 ):
-        times = math.ceil(container.object_count/10000)
+        times = math.ceil((container.object_count+0.00)/10000)
     else:
         times = 1
     while runs < times:
-        if len(last) > 0:
-	    remote_file_list = container.list_objects_info(marker=last)
+        if len(last['name']) > 0:
+	    remote_file_list = container.list_objects_info(marker=last['name'])
 	else:
 	    remote_file_list = container.list_objects_info()
         for remote_file in remote_file_list:
