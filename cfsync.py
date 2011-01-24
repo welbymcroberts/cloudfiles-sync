@@ -61,17 +61,18 @@ def build_remote_file_list(container):
     return remotefiles
 
 remote_file_list = build_remote_file_list(backup_container)
-#from pprint import pprint as pp
-#pp(remote_file_list)
+file_number = 0
 
 def callback(done,total):
     """This function does nothing more than print out a % completed to STDOUT"""
-    sys.stdout.write("\r %d completed of %d - %d%%" %(done,total, int((float(done)/float(total))*100)))
+    sys.stdout.write("\r %d completed of %d - %d%% (%d of %d)" %(done,total, int((float(done)/float(total))*100), file_number, len(local_file_list)))
     sys.stdout.flush()
     if ( done == total ):
         sys.stdout.write("\n")
         sys.stdout.flush
+
 def upload_cf(local_file):
+    file_number = file_number + 1
     u = backup_container.create_object(local_file)
     u.load_from_filename(local_file,callback=callback)
     callback(u.size,u.size)
