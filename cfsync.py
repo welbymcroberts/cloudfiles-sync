@@ -50,7 +50,7 @@ def build_remote_file_list(container):
     else:
         times = 1
     while runs < times:
-        if len(last['name']) > 0:
+        if len(last) > 0:
 	    remote_file_list = container.list_objects_info(marker=last['name'])
 	else:
 	    remote_file_list = container.list_objects_info()
@@ -61,7 +61,6 @@ def build_remote_file_list(container):
     return remotefiles
 
 remote_file_list = build_remote_file_list(backup_container)
-file_number = 0
 
 def callback(done,total):
     """This function does nothing more than print out a % completed to STDOUT"""
@@ -72,17 +71,17 @@ def callback(done,total):
         sys.stdout.flush
 
 def upload_cf(local_file):
-    file_number = file_number + 1
     u = backup_container.create_object(local_file)
     u.load_from_filename(local_file,callback=callback)
     callback(u.size,u.size)
 
+file_number = 0
 for local_file in local_file_list:
-        if md5:
+        local_file = local_file.rstrip()
+        if md5 == True:
 	    import hashlib
 	    local_file_hash = hashlib.md5()
             local_file_hash.update(open(local_file,'rb').read())
-        local_file = local_file.rstrip()
         local_file_size = os.stat(local_file).st_size/1024
         #check to see if we're in remote_file_list
         try:
@@ -92,7 +91,7 @@ for local_file in local_file_list:
                     print "Remote file is older, uploading %s (%dK) " % (local_file, local_file_size)
                     upload_cf(local_file)
                 #is the md5 different locally to remotly
-                elif (md5 and remote_file_list[local_file]['hash'] != local_file_hash.hexdigest()):
+                elif (md5 == True and remote_file_list[local_file]['hash'] != local_file_hash.hexdigest()):
                     print "Remote file hash %s does not match local %s, uploading %s (%dK)" % (remote_file_list[local_file]['hash'], local_file_hash.hexdigest(), local_file, local_file_size)
                     upload_cf(local_file)
                 else:
@@ -104,3 +103,4 @@ for local_file in local_file_list:
         except KeyError:
                 print "Remote file does not exist, uploading %s (%dK)" % (local_file, local_file_size)
                 upload_cf(local_file)
+	file_number = file_number + 1
