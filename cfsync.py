@@ -8,6 +8,7 @@ import math
 class Config:
     """Configuration class to hold all config vars and tests"""
     def __init__(self):
+        """Initalisor for config, will read in config from file, and check if config is valid"""
         self.cp = ConfigParser.ConfigParser()
 	self.cp.read(['/etc/cfsync/cfsync.ini', os.path.expanduser('~/.cfsync.ini') ])
 	self.api_username = self.get('api','username',True)
@@ -18,7 +19,9 @@ class Config:
 	#TODO return contianer object ?
 	self.gen_md5 = self.get('general','md5',False,False)
 	self.gen_verbose = self.get('general','verbose',False,False)
+        self.gen_filelist = self.get('general','filelist',False,'STDIN')
     def get(self,section,option,required=False,default=None):
+        """Wrapper arround ConfigParser.get that will asign a defaul if declaration is not mandatory"""
         try:
 	    return self.cp.get(section,option)
 	except:
@@ -28,6 +31,7 @@ class Config:
             else:
 	        return default
     def checkApi(self):
+        """Checks to ensure that the API details are within limits"""
         if len(self.api_key) < 8:
 	    print "Your API Key does not look right. Please re-check!"
 	    sys.exit(1)
@@ -35,9 +39,21 @@ class Config:
 	    print "Your API Username does not look right. Please re-check!"
 	    sys.exit(1)
 
-config = Config()
+class FileList:
+    def __init__(self,config):
+        if config.gen_filelist == "STDIN":
+            self.list = sys.stdin.readlines()
+        else:
+            #TODO need to have the rsync style side of things here
+            pass
 
-local_file_list = sys.stdin.readlines()
+#### Main program loop
+
+# Read config
+config = Config()
+# Read file list
+fl = FileList(config)
+local_file_list = fl.list
 
 #Setup the connection
 cf = cloudfiles.get_connection(config.api_username,config.api_key,authurl=config.api_url)
