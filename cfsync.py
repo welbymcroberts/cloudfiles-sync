@@ -3,24 +3,42 @@ import sys,os
 import ConfigParser 
 import math
 
-# Read in config
-config = ConfigParser.ConfigParser()
 
-# Read the system wide config
-config.read(['/etc/cfsync/cfsync.ini', os.path.expanduser('~/.cfsync.ini') ])
 
-#Ensure that the config exsits
-if len(config.get('api','key')) <8 or len(config.get('api','username')) <2:
-    print "Check you config in either ~/.cfsync.ini or /etc/cfsync/cfsync.ini"
-    sys.exit(2)
+class Config:
+    """Configuration class to hold all config vars and tests"""
+    def __init__(self):
+        self.cp = ConfigParser.ConfigParser()
+	self.cp.read(['/etc/cfsync/cfsync.ini', os.path.expanduser('~/.cfsync.ini') ])
+	self.api_username = self.get('api','username',True)
+	self.api_key = self.get('api','key',True)
+	self.api_url = self.get('api','url',True)
+        self.checkApi()
+    def get(self,section,option,required=False):
+        try:
+	    return self.cp.get(section,option)
+	except:
+	    if required == True:
+	        print "[%s]%s Not found, please edit your config file, or supply this as --%s-%s=value" % (section,option,section,option)
+		sys.exit(1)
+            else:
+	        pass
+    def checkApi(self):
+        if len(self.api_key) < 8:
+	    print "Your API Key does not look right. Please re-check!"
+	    sys.exit(1)
+	if len(self.api_username) < 2:
+	    print "Your API Username does not look right. Please re-check!"
+	    sys.exit(1)
 
+config = Config()
 #Check we've got an api_username
-api_username = config.get('api','username')
-api_key = config.get('api','key')
-auth_url = config.get('api','url')
-dest_container= config.get('destination','container')
-md5 = config.get('destination','md5')
-
+api_username = config.api_username
+api_key = config.api_key
+auth_url = config.api_url
+dest_container= config.get('destination','container',True)
+md5 = config.get('destination','md5',False)
+verbose = config.get('general','verbose',False)
 local_file_list = sys.stdin.readlines()
 
 #Setup the connection
@@ -40,6 +58,10 @@ try:
 except NameError:
     backup_container = cf.create_container(dest_container)
 
+
+def printdebug(m,mv=()):
+    if verbose == True:
+        print m % mv
 # We've now got our container, lets get a file list
 def build_remote_file_list(container):
     runs = 0
@@ -88,19 +110,19 @@ for local_file in local_file_list:
 	    if len(remote_file_list[local_file]['name']) > 0:
                 #has it been modified
                 if remote_file_list[local_file]['last_modified'] < os.stat(local_file).st_mtime :
-                    print "Remote file is older, uploading %s (%dK) " % (local_file, local_file_size)
+                    printdebug("Remote file is older, uploading %s (%dK) ",(local_file, local_file_size))
                     upload_cf(local_file)
                 #is the md5 different locally to remotly
                 elif (md5 == True and remote_file_list[local_file]['hash'] != local_file_hash.hexdigest()):
-                    print "Remote file hash %s does not match local %s, uploading %s (%dK)" % (remote_file_list[local_file]['hash'], local_file_hash.hexdigest(), local_file, local_file_size)
+                    printdebug("Remote file hash %s does not match local %s, uploading %s (%dK)",(remote_file_list[local_file]['hash'], local_file_hash.hexdigest(), local_file, local_file_size))
                     upload_cf(local_file)
                 else:
-                    print "Remote file hash and date match, skipping %s" % (local_file)
+                    printdebug("Remote file hash and date match, skipping %s",(local_file))
             else:
 	        # You shouldn't get here! but lets upload, just incase
-		print "this shouldn't have happened!"
+		printdebug("this shouldn't have happened!")
 	        upload_cf(local_file)
         except KeyError:
-                print "Remote file does not exist, uploading %s (%dK)" % (local_file, local_file_size)
+                printdebug("Remote file does not exist, uploading %s (%dK)",(local_file, local_file_size))
                 upload_cf(local_file)
 	file_number = file_number + 1
