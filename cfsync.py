@@ -24,6 +24,7 @@ class Config:
 	self.get('general','md5','gen_md5',False)
 	self.get('general','verbose','gen_verbose',False)
         self.get('general','filelist','gen_filelist',False)
+        self.get('general','remove','dest_remove',False)
 
 
     def get(self,section,option,destination,required=False):
@@ -57,21 +58,28 @@ class Config:
         self.op.add_option('-m','--md5', dest="gen_md5", action="store_true", help="Enable MD5 comparision")
         self.op.add_option('-v','--verbose', dest="gen_verbose", action="store_true", help="Enable Verbose mode (prints out a lot more info!)")
         self.op.add_option('-s','--stdin', dest="gen_filelist", action="store_true",help="Take file list from STDIN (legacy mode)", default=True )
+        self.op.add_option('-r','--remove', dest="dest_remove", action="store_true", help="Remove the files on the remote side if they don't exist locally", default=False)
 
 class FileList:
-    def __init__(self,config):
+    def __init__(self,config,listtype):
         if config['gen_filelist'] == True:
-            self.file_list = sys.stdin.readlines()
+            self.file_list_stdin = sys.stdin.readlines()
+            self.file_list = {}
         else:
             #TODO need to have the rsync style side of things here
             pass
-
+        if listtype == 'remote':
+            pass
+        elif listtype == 'local':
+            for local_file in self.file_list_stdin:
+                self.file_list[local_file.rstrip()] = { 'name': local_file.rstrip() }
+            
 #### Main program loop
 
 # Read config
 c = Config()
 # Read file list
-fl = FileList(c.config)
+fl = FileList(c.config,'local')
 local_file_list = fl.file_list
 
 #Setup the connection
@@ -129,6 +137,8 @@ def upload_cf(local_file):
     u = backup_container.create_object(local_file)
     u.load_from_filename(local_file,callback=callback)
     callback(u.size,u.size)
+def remove_cf(remote_file):
+    u = backup_container.delete_object(remote_file)
 
 file_number = 0
 for local_file in local_file_list:
@@ -163,3 +173,13 @@ for local_file in local_file_list:
                 printdebug("Remote file does not exist, uploading %s (%dK)",(local_file, local_file_size))
                 upload_cf(local_file)
 	file_number = file_number + 1
+
+for remote_file in remote_file_list:
+    try:
+        local_file_list[str(remote_file)]
+    except:
+        if c.config['dest_remove'] == True:
+	    #TODO DELETE FILE
+	    print "Removing %s" % remote_file
+            remove_cf(remote_file)
+
