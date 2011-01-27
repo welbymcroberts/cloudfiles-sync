@@ -179,7 +179,6 @@ for remote_file in remote_file_list:
         local_file_list[str(remote_file)]
     except:
         if c.config['dest_remove'] == True:
-	    #TODO DELETE FILE
-	    print "Removing %s" % remote_file
+	    printdebug("Removing %s",remote_file)
             remove_cf(remote_file)
 
