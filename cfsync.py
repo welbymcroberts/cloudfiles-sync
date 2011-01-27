@@ -2,48 +2,66 @@ import cloudfiles
 import sys,os
 import ConfigParser 
 import math
+import optparse
 
-
-
+from pprint import pprint as pp
 class Config:
     """Configuration class to hold all config vars and tests"""
     def __init__(self):
         """Initalisor for config, will read in config from file, and check if config is valid"""
         self.cp = ConfigParser.ConfigParser()
+        self.op = optparse.OptionParser()
+        self.optionParserSetup()
+        (self.op_results,self.op_args) = self.op.parse_args()
+        self.config = {}
 	self.cp.read(['/etc/cfsync/cfsync.ini', os.path.expanduser('~/.cfsync.ini') ])
-	self.api_username = self.get('api','username',True)
-	self.api_key = self.get('api','key',True)
-	self.api_url = self.get('api','url',True)
+	self.get('api','username','api_username',True)
+	self.get('api','key','api_key',True)
+	self.get('api','url','api_url',True)
         self.checkApi()
-	self.dest_container = self.get('destination','container',True)
+	self.get('destination','container','dest_container',True)
 	#TODO return contianer object ?
-	self.gen_md5 = self.get('general','md5',False,False)
-	self.gen_verbose = self.get('general','verbose',False,False)
-        self.gen_filelist = self.get('general','filelist',False,'STDIN')
+	self.get('general','md5','gen_md5',False)
+	self.get('general','verbose','gen_verbose',False)
+        self.get('general','filelist','gen_filelist',False)
 
-    def get(self,section,option,required=False,default=None):
+
+    def get(self,section,option,destination,required=False):
         """Wrapper arround ConfigParser.get that will asign a defaul if declaration is not mandatory"""
         try:
-	    return self.cp.get(section,option)
+            self.config[destination] = self.cp.get(section,option)
 	except:
-	    if required == True:
-	        print "[%s]%s Not found, please edit your config file, or supply this as --%s-%s=value" % (section,option,section,option)
-		sys.exit(1)
-            else:
-	        return default
+            try:
+                self.config[destination] = eval('self.op_results.%s' % destination)
+            except:
+                if required == True:
+                    print "[%s]%s Not found, please edit your config file, or supply this as a command line option" % (section,option)
+                    sys.exit(1)
+
     def checkApi(self):
         """Checks to ensure that the API details are within limits"""
-        if len(self.api_key) < 8:
+        if len(self.config['api_key']) < 8:
 	    print "Your API Key does not look right. Please re-check!"
 	    sys.exit(1)
-	if len(self.api_username) < 2:
+	if len(self.config['api_username']) < 2:
 	    print "Your API Username does not look right. Please re-check!"
 	    sys.exit(1)
 
+
+
+    def optionParserSetup(self):
+        self.op.add_option('-u','--username', dest="api_username", help="API Username (ex: 'welby.mcroberts')")
+        self.op.add_option('-k','--key', dest="api_key", help="API Key (ex: 'abcdefghijklmnopqrstuvwxyz123456')")
+        self.op.add_option('-a','--authurl', dest="api_url", help="Auth URL (ex: https://lon.auth.api.rackspacecloud.com/v1.0 )")
+        self.op.add_option('-c','--container', dest="dest_contianer", help="Container Name")
+        self.op.add_option('-m','--md5', dest="gen_md5", action="store_true", help="Enable MD5 comparision")
+        self.op.add_option('-v','--verbose', dest="gen_verbose", action="store_true", help="Enable Verbose mode (prints out a lot more info!)")
+        self.op.add_option('-s','--stdin', dest="gen_filelist", action="store_true",help="Take file list from STDIN (legacy mode)")
+
 class FileList:
     def __init__(self,config):
-        if config.gen_filelist == "STDIN":
-            self.list = sys.stdin.readlines()
+        if config['gen_filelist'] == True:
+            self.file_list = sys.stdin.readlines()
         else:
             #TODO need to have the rsync style side of things here
             pass
@@ -51,31 +69,31 @@ class FileList:
 #### Main program loop
 
 # Read config
-config = Config()
+c = Config()
 # Read file list
-fl = FileList(config)
-local_file_list = fl.list
+fl = FileList(c.config)
+local_file_list = fl.file_list
 
 #Setup the connection
-cf = cloudfiles.get_connection(config.api_username,config.api_key,authurl=config.api_url)
+cf = cloudfiles.get_connection(c.config['api_username'],c.config['api_key'],authurl=c.config['api_url'])
 
 #Get a list of containers
 containers = cf.get_all_containers()
 
 # Lets setup the container
 for container in containers:
-    if container.name == config.dest_container:
+    if container.name == c.config['dest_container']:
             backup_container = container
 
 #Create the container if it does not exsit
 try:
     backup_container
 except NameError:
-    backup_container = cf.create_container(config.dest_container)
+    backup_container = cf.create_container(c.config['dest_container'])
 
 
 def printdebug(m,mv=()):
-    if config.gen_verbose == True:
+    if c.config['gen_verbose'] == True:
         print m % mv
 # We've now got our container, lets get a file list
 def build_remote_file_list(container):
@@ -115,7 +133,7 @@ def upload_cf(local_file):
 file_number = 0
 for local_file in local_file_list:
         local_file = local_file.rstrip()
-        if config.gen_md5 == True:
+        if c.config['gen_md5'] == True:
 	    try:
                 import hashlib
 	        local_file_hash = hashlib.md5()
@@ -132,7 +150,7 @@ for local_file in local_file_list:
                     printdebug("Remote file is older, uploading %s (%dK) ",(local_file, local_file_size))
                     upload_cf(local_file)
                 #is the md5 different locally to remotly
-                elif (config.gen_md5 == True and remote_file_list[local_file]['hash'] != local_file_hash.hexdigest()):
+                elif (c.config['gen_md5'] == True and remote_file_list[local_file]['hash'] != local_file_hash.hexdigest()):
                     printdebug("Remote file hash %s does not match local %s, uploading %s (%dK)",(remote_file_list[local_file]['hash'], local_file_hash.hexdigest(), local_file, local_file_size))
                     upload_cf(local_file)
                 else:
