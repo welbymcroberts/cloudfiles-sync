@@ -14,7 +14,11 @@ class Config:
 	self.api_key = self.get('api','key',True)
 	self.api_url = self.get('api','url',True)
         self.checkApi()
-    def get(self,section,option,required=False):
+	self.dest_container = self.get('destination','container',True)
+	#TODO return contianer object ?
+	self.gen_md5 = self.get('general','md5',False,False)
+	self.gen_verbose = self.get('general','verbose',False,False)
+    def get(self,section,option,required=False,default=None):
         try:
 	    return self.cp.get(section,option)
 	except:
@@ -22,7 +26,7 @@ class Config:
 	        print "[%s]%s Not found, please edit your config file, or supply this as --%s-%s=value" % (section,option,section,option)
 		sys.exit(1)
             else:
-	        pass
+	        return default
     def checkApi(self):
         if len(self.api_key) < 8:
 	    print "Your API Key does not look right. Please re-check!"
@@ -32,35 +36,29 @@ class Config:
 	    sys.exit(1)
 
 config = Config()
-#Check we've got an api_username
-api_username = config.api_username
-api_key = config.api_key
-auth_url = config.api_url
-dest_container= config.get('destination','container',True)
-md5 = config.get('destination','md5',False)
-verbose = config.get('general','verbose',False)
+
 local_file_list = sys.stdin.readlines()
 
 #Setup the connection
-cf = cloudfiles.get_connection(api_username, api_key, authurl=auth_url)
+cf = cloudfiles.get_connection(config.api_username,config.api_key,authurl=config.api_url)
 
 #Get a list of containers
 containers = cf.get_all_containers()
 
 # Lets setup the container
 for container in containers:
-    if container.name == dest_container:
+    if container.name == config.dest_container:
             backup_container = container
 
 #Create the container if it does not exsit
 try:
     backup_container
 except NameError:
-    backup_container = cf.create_container(dest_container)
+    backup_container = cf.create_container(config.dest_container)
 
 
 def printdebug(m,mv=()):
-    if verbose == True:
+    if config.gen_verbose == True:
         print m % mv
 # We've now got our container, lets get a file list
 def build_remote_file_list(container):
@@ -100,7 +98,7 @@ def upload_cf(local_file):
 file_number = 0
 for local_file in local_file_list:
         local_file = local_file.rstrip()
-        if md5 == True:
+        if config.gen_md5 == True:
 	    import hashlib
 	    local_file_hash = hashlib.md5()
             local_file_hash.update(open(local_file,'rb').read())
@@ -113,7 +111,7 @@ for local_file in local_file_list:
                     printdebug("Remote file is older, uploading %s (%dK) ",(local_file, local_file_size))
                     upload_cf(local_file)
                 #is the md5 different locally to remotly
-                elif (md5 == True and remote_file_list[local_file]['hash'] != local_file_hash.hexdigest()):
+                elif (config.gen_md5 == True and remote_file_list[local_file]['hash'] != local_file_hash.hexdigest()):
                     printdebug("Remote file hash %s does not match local %s, uploading %s (%dK)",(remote_file_list[local_file]['hash'], local_file_hash.hexdigest(), local_file, local_file_size))
                     upload_cf(local_file)
                 else:
