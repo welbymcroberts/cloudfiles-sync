@@ -56,7 +56,7 @@ class Config:
         self.op.add_option('-c','--container', dest="dest_contianer", help="Container Name")
         self.op.add_option('-m','--md5', dest="gen_md5", action="store_true", help="Enable MD5 comparision")
         self.op.add_option('-v','--verbose', dest="gen_verbose", action="store_true", help="Enable Verbose mode (prints out a lot more info!)")
-        self.op.add_option('-s','--stdin', dest="gen_filelist", action="store_true",help="Take file list from STDIN (legacy mode)")
+        self.op.add_option('-s','--stdin', dest="gen_filelist", action="store_true",help="Take file list from STDIN (legacy mode)", default=True )
 
 class FileList:
     def __init__(self,config):
