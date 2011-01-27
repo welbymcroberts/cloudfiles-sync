@@ -20,6 +20,7 @@ class Config:
 	self.gen_md5 = self.get('general','md5',False,False)
 	self.gen_verbose = self.get('general','verbose',False,False)
         self.gen_filelist = self.get('general','filelist',False,'STDIN')
+
     def get(self,section,option,required=False,default=None):
         """Wrapper arround ConfigParser.get that will asign a defaul if declaration is not mandatory"""
         try:
@@ -115,8 +116,12 @@ file_number = 0
 for local_file in local_file_list:
         local_file = local_file.rstrip()
         if config.gen_md5 == True:
-	    import hashlib
-	    local_file_hash = hashlib.md5()
+	    try:
+                import hashlib
+	        local_file_hash = hashlib.md5()
+            except ImportError:
+                import md5
+                local_file_hash = md5.new()
             local_file_hash.update(open(local_file,'rb').read())
         local_file_size = os.stat(local_file).st_size/1024
         #check to see if we're in remote_file_list
