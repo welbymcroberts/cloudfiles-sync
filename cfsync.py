@@ -24,13 +24,29 @@ class Config:
         self.get('general','md5','gen_md5',False)
         self.get('general','verbose','gen_verbose',False)
         self.get('general','filelist','gen_filelist',False)
-        self.get('general','remove','dest_remove',False)
+        self.get('destination','remove','dest_remove',False)
+        self.get('general','progress','gen_progress',False)
 
 
     def get(self,section,option,destination,required=False):
         """Wrapper arround ConfigParser.get that will asign a defaul if declaration is not mandatory"""
         try:
-            self.config[destination] = self.cp.get(section,option)
+            #Try getting the vars from config ini file
+            try:
+                self.config[destination] = self.cp.get(section,option)
+            except:
+                #We're not going to complain if the values arn't in the file
+                pass
+            
+            #Try overriding the values with optparse
+            try:
+                if (eval('self.op_results.%s' % destination) != None):
+                    self.config[destination] = eval('self.op_results.%s' % destination)
+            except:
+                #No Key, no point in doing anything!
+                pass
+            self.config[destination]
+            
         except:
             try:
                 self.config[destination] = eval('self.op_results.%s' % destination)
@@ -60,6 +76,7 @@ class Config:
         self.op.add_option('-v','--verbose', dest="gen_verbose", action="store_true", help="Enable Verbose mode (prints out a lot more info!)")
         self.op.add_option('-s','--stdin', dest="gen_filelist", action="store_true",help="Take file list from STDIN (legacy mode)", default=True )
         self.op.add_option('-r','--remove', dest="dest_remove", action="store_true", help="Remove the files on the remote side if they don't exist locally", default=False)
+        self.op.add_option('-p','--progress', dest="gen_progress", action="store_true", help="Show progress", default=False)
 
 class FileList:
     def __init__(self,config,listtype):
@@ -139,11 +156,12 @@ if c.config['gen_verbose'] == True:
 
 def callback(done,total):
     """This function does nothing more than print out a % completed to STDOUT"""
-    sys.stdout.write("\r %d completed of %d - %d%% (%d of %d)" %(done,total, int((float(done)/float(total))*100), file_number, len(local_file_list)))
-    sys.stdout.flush()
-    if ( done == total ):
-        sys.stdout.write("\n")
-        sys.stdout.flush
+    if (c.config['gen_verbose'] == True) or (c.config['gen_progress'] == True):
+        sys.stdout.write("\r %d completed of %d - %d%% (%d of %d)" %(done,total, int((float(done)/float(total))*100), file_number, len(local_file_list)))
+        sys.stdout.flush()
+        if ( done == total ):
+            sys.stdout.write("\n")
+            sys.stdout.flush
 
 def upload_cf(local_file):
     u = backup_container.create_object(local_file)
