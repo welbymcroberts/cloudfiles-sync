@@ -6,9 +6,7 @@ Some of the features are:
 
 * Lightweight - Currently the only non standard python library required is python-cloudfiles. The aim is NOT to require anything else, and hence ensuring maximum portability
 * Support for Cloudfiles UK and US along with any SWIFT object store
-* Comparision of files to ensure Bandwidth is not wasted by compare the remote & local
-** MD5
-** Modified Time
+* Comparision of files to ensure Bandwidth is not wasted by compare the remote & local MD5 and Modified Time
 * Removal of files that do not exist in the source from the destination
 * Quiet by default - Allows the script to run as a cron without any noise
 * Verbose mode - Useful for logging or debuging
