@@ -68,6 +68,7 @@ class Config:
 
 
     def optionParserSetup(self):
+        """Setup the options for optparser"""
         self.op.add_option('-u','--username', dest="api_username", help="API Username (ex: 'welby.mcroberts')")
         self.op.add_option('-k','--key', dest="api_key", help="API Key (ex: 'abcdefghijklmnopqrstuvwxyz123456')")
         self.op.add_option('-a','--authurl', dest="api_url", help="Auth URL (ex: https://lon.auth.api.rackspacecloud.com/v1.0 )")
@@ -79,18 +80,44 @@ class Config:
         self.op.add_option('-p','--progress', dest="gen_progress", action="store_true", help="Show progress", default=False)
 
 class FileList:
-    def __init__(self,config,listtype):
+    """FileList class for file lists"""
+    def __init__(self,config,listtype,container=None):
+        self.file_list = {}
         if config['gen_filelist'] == True:
             self.file_list_stdin = sys.stdin.readlines()
-            self.file_list = {}
         else:
             #TODO need to have the rsync style side of things here
             pass
         if listtype == 'remote':
-            pass
+            self.container = container
+            self.buildRemote()
         elif listtype == 'local':
-            for local_file in self.file_list_stdin:
-                self.file_list[local_file.rstrip()] = { 'name': local_file.rstrip() }
+            self.buildLocal()
+    def buildLocal(self):
+        """Builds the list of files for Local files"""
+        for local_file in self.file_list_stdin:
+            self.file_list[local_file.rstrip()] = { 'name': local_file.rstrip() }
+    def getRemoteFiles(self,marker=None):
+        return self.container.list_objects_info(marker=marker)
+    def buildRemote(self):
+        """Builds file list for remote files"""
+        # Set the run number as 0
+        self.runNumber = 0
+
+        
+        if (self.container.object_count > 10000):
+            self.numberTimes = math.ceil((self.container.object_count+0.00/10000))
+        else:
+            self.numberTimes = 1
+        while self.runNumber < self.numberTimes:
+            if self.runNumber == 0:
+                remote_file_list = self.getRemoteFiles()
+            else:
+                remote_file_list = self.getRemoteFiles(marker=self.lastFile)
+            for remote_file in remote_file_list:
+                self.file_list[remote_file['name']] = remote_file
+            self.lastFile = remote_file
+            self.runNumber = self.runNumber + 1
             
 #### Main program loop
 
@@ -150,7 +177,7 @@ def build_remote_file_list(container):
     return remotefiles
 if c.config['gen_verbose'] == True:
     print "Building Remote file list"
-remote_file_list = build_remote_file_list(backup_container)
+remote_file_list = FileList(c.config,'remote',container=backup_container).file_list
 if c.config['gen_verbose'] == True:
     print "%d Remote files" % len(remote_file_list)
 
@@ -198,7 +225,7 @@ for local_file in local_file_list:
             else:
                 # You shouldn't get here! but lets upload, just incase
                 printdebug("this shouldn't have happened!")
-            upload_cf(local_file)
+                upload_cf(local_file)
         except KeyError:
                 printdebug("Remote file does not exist, uploading %s (%dK)",(local_file, local_file_size))
                 upload_cf(local_file)
