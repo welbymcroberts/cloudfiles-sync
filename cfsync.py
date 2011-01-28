@@ -30,14 +30,12 @@ class Config:
     def get(self,section,option,destination,required=False):
         """Wrapper arround ConfigParser.get that will asign a defaul if declaration is not mandatory"""
         try:
+            self.config[destination] = eval('self.op_results.%s' % destination)
             self.config[destination] = self.cp.get(section,option)
 	except:
-            try:
-                self.config[destination] = eval('self.op_results.%s' % destination)
-            except:
-                if required == True:
-                    print "[%s]%s Not found, please edit your config file, or supply this as a command line option" % (section,option)
-                    sys.exit(1)
+            if required == True:
+                print "[%s]%s Not found, please edit your config file, or supply this as a command line option" % (section,option)
+                sys.exit(1)
 
     def checkApi(self):
         """Checks to ensure that the API details are within limits"""
