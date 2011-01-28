@@ -3,8 +3,6 @@ import sys,os
 import ConfigParser 
 import math
 import optparse
-
-
 class Config:
     """Configuration class to hold all config vars and tests"""
     def __init__(self):
@@ -127,32 +125,6 @@ class FileList:
                 self.file_list[remote_file['name']] = remote_file
             self.lastFile = remote_file
             self.runNumber = self.runNumber + 1
-            
-#### Main program loop
-
-# Read config
-c = Config()
-# Read file list
-fl = FileList(c.config,'local')
-local_file_list = fl.file_list
-if c.config['gen_verbose'] == True:
-    print "Setting up CF now"
-#Setup the connection
-backup_container = c.container
-
-
-
-def printdebug(m,mv=()):
-    if c.config['gen_verbose'] == True:
-        print m % mv
-# We've now got our container, lets get a file list
-
-if c.config['gen_verbose'] == True:
-    print "Building Remote file list"
-remote_file_list = FileList(c.config,'remote',container=backup_container).file_list
-if c.config['gen_verbose'] == True:
-    print "%d Remote files" % len(remote_file_list)
-
 def callback(done,total):
     """This function does nothing more than print out a % completed to STDOUT"""
     if (c.config['gen_verbose'] == True) or (c.config['gen_progress'] == True):
@@ -161,16 +133,29 @@ def callback(done,total):
         if ( done == total ):
             sys.stdout.write("\n")
             sys.stdout.flush
-
 def upload_cf(local_file):
     u = backup_container.create_object(local_file)
     u.load_from_filename(local_file,callback=callback)
     callback(u.size,u.size)
 def remove_cf(remote_file):
     backup_container.delete_object(remote_file)
-
-file_number = 0
-for local_file in local_file_list:
+def printdebug(m,mv=()):
+    if c.config['gen_verbose'] == True:
+        print m % mv
+def mainLoop():
+    global c
+    c = Config()
+    global local_file_list
+    local_file_list  = FileList(c.config,'local').file_list
+    global backup_container
+    backup_container = c.container
+    printdebug("Building Remote file list")
+    global remote_file_list
+    remote_file_list = FileList(c.config,'remote',container=backup_container).file_list
+    printdebug("%d Remote files",len(remote_file_list))
+    global file_number
+    file_number = 0
+    for local_file in local_file_list:
         local_file = local_file.rstrip()
         if c.config['gen_md5'] == True:
             try:
@@ -202,12 +187,12 @@ for local_file in local_file_list:
                 printdebug("Remote file does not exist, uploading %s (%dK)",(local_file, local_file_size))
                 upload_cf(local_file)
         file_number = file_number + 1
-
-for remote_file in remote_file_list:
-    try:
-        local_file_list[str(remote_file)]
-    except:
-        if c.config['dest_remove'] == True:
-            printdebug("Removing %s",remote_file)
-            remove_cf(remote_file)
-
+    for remote_file in remote_file_list:
+        try:
+            local_file_list[str(remote_file)]
+        except:
+            if c.config['dest_remove'] == True:
+                printdebug("Removing %s",remote_file)
+                remove_cf(remote_file)
+if __name__ == "__main__":
+    mainLoop()
