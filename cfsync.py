@@ -26,8 +26,7 @@ class Config:
         self.get('general','filelist','gen_filelist',False)
         self.get('destination','remove','dest_remove',False)
         self.get('general','progress','gen_progress',False)
-
-
+        self.getContainer()
     def get(self,section,option,destination,required=False):
         """Wrapper arround ConfigParser.get that will asign a defaul if declaration is not mandatory"""
         try:
@@ -79,6 +78,16 @@ class Config:
         self.op.add_option('-r','--remove', dest="dest_remove", action="store_true", help="Remove the files on the remote side if they don't exist locally", default=False)
         self.op.add_option('-p','--progress', dest="gen_progress", action="store_true", help="Show progress", default=False)
 
+    def getContainer(self):
+        self.cf = cloudfiles.get_connection(self.config['api_username'],self.config['api_key'],authurl=self.config['api_url'])
+        self.cfContainers = self.cf.get_all_containers()
+        for container in self.cfContainers:
+            if container.name == self.config['dest_container']:
+                self.container = container
+        try:
+            self.container
+        except:
+            self.container = self.cf.create_container(self.config['dest_container'])
 class FileList:
     """FileList class for file lists"""
     def __init__(self,config,listtype,container=None):
@@ -129,52 +138,15 @@ local_file_list = fl.file_list
 if c.config['gen_verbose'] == True:
     print "Setting up CF now"
 #Setup the connection
-cf = cloudfiles.get_connection(c.config['api_username'],c.config['api_key'],authurl=c.config['api_url'])
-if c.config['gen_verbose'] == True:
-    print "Getting all containers"
-#Get a list of containers
-containers = cf.get_all_containers()
+backup_container = c.container
 
-# Lets setup the container
-for container in containers:
-    if container.name == c.config['dest_container']:
-            backup_container = container
-
-if c.config['gen_verbose'] == True:
-    print "Got a backup container"
-#Create the container if it does not exsit
-try:
-    backup_container
-except NameError:
-    backup_container = cf.create_container(c.config['dest_container'])
 
 
 def printdebug(m,mv=()):
     if c.config['gen_verbose'] == True:
         print m % mv
 # We've now got our container, lets get a file list
-def build_remote_file_list(container):
-    runs = 0
-    last = ''
-    remotefiles = {}
-    if ( container.object_count > 10000 ):
-        times = math.ceil((container.object_count+0.00)/10000)
-    else:
-        times = 1
-    if c.config['gen_verbose'] == True:
-        print "Need to run %d times" % times    
-    while runs < times:
-        if c.config['gen_verbose'] == True:
-            print "Run %d" % runs
-        if len(last) > 0:
-            remote_file_list = container.list_objects_info(marker=last['name'])
-        else:
-            remote_file_list = container.list_objects_info()
-        for remote_file in remote_file_list:
-            remotefiles[remote_file['name']] = remote_file
-        last = remote_file
-        runs = runs + 1
-    return remotefiles
+
 if c.config['gen_verbose'] == True:
     print "Building Remote file list"
 remote_file_list = FileList(c.config,'remote',container=backup_container).file_list
