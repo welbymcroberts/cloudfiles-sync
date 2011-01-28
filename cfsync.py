@@ -1,3 +1,4 @@
+#!/usr/bin/python
 import cloudfiles
 import sys,os
 import ConfigParser 
@@ -155,7 +156,7 @@ class FileList:
             self.runNumber = self.runNumber + 1
 class Sync:
     def __init__(self):
-        self.file_number = 0
+        self.file_number = 1
         self.direction = c.config['dir']
         if self.direction == 'to':
             self.source = c.config['local']
@@ -177,27 +178,55 @@ class Sync:
             except ImportError:
                 import md5
                 local_file_hash = md5.new()
-            local_file_hash.update(open(lf,'rb').read())
+            try:
+                local_file_hash.update(open(lf,'rb').read())
+            except IOError:
+                local_file_hash.update('')
             return local_file_hash
-    def checkFile(self):
+    def checkFile(self,f=None):
+        if self.direction == 'from':
+            action = 'Downloading'
+        elif self.direction == 'to':
+            action = 'Uploading'
         try:
-            if len(self.remote_file_list[self.lf]['name']) >0:
-                if self.remote_file_list[self.lf]['last_modified'] < os.stat(self.lf).st_mtime:
-                    printdebug("Remote file is older, uploading %s (%dK) ",(self.lf, self.lf_size))
-                    return True
-                #is the md5 different locally to remotly
-                elif (c.config['gen_md5'] == True and self.remote_file_list[self.lf]['hash'] != self.lf_hash.hexdigest()):
-                    printdebug("Remote file hash %s does not match local %s, uploading %s (%dK)",(self.remote_file_list[self.lf]['hash'], self.lf_hash.hexdigest(), self.lf, self.lf_size))
-                    return True
-                else:
-                    printdebug("Remote file hash and date match, skipping %s",(self.lf))
-                    return False
-        except KeyError:
-            printdebug("Remote file does not exist, uploading %s (%dK)",(self.lf, self.lf_size))
+            #TODO: Clean this up
+            if self.direction == 'from':
+                f2 = f.replace('//','/')
+                f2 = f2.replace('./','/')
+                
+                if(self.local_file_list[str(self.destination+f2)]):
+                    gr = os.stat(self.lf).st_mtime
+                    lt = self.remote_file_list[f]['last_modified']
+                    if lt < gr :
+                        printdebug("File is older, %s %s (%dK) ",(action,self.lf, self.lf_size))
+                        return True
+                    elif (c.config['gen_md5'] == True and self.remote_file_list[f]['hash'] != self.lf_hash.hexdigest()):
+                        printdebug("Remote File hash %s does not match local %s, %s %s (%dK)",(self.remote_file_list[f]['hash'], self.lf_hash.hexdigest(), action, self.lf, self.lf_size))
+                        return True
+                    else:
+                        printdebug("File hash and date match, skipping %s",(self.lf))
+                        return False
+            else:
+                if len(self.remote_file_list[self.lf]['name']) >0:
+                    lt = os.stat(self.lf).st_mtime
+                    gr = self.remote_file_list[self.lf]['last_modified']
+                    if gr < lt:
+                        printdebug("File is older, %s %s (%dK) ",(action,self.lf, self.lf_size))
+                        return True
+                    #is the md5 different locally to remotly
+                    elif (c.config['gen_md5'] == True and self.remote_file_list[self.lf]['hash'] != self.lf_hash.hexdigest()):
+                        printdebug("Remote File hash %s does not match local %s, %s %s (%dK)",(self.remote_file_list[self.lf]['hash'], self.lf_hash.hexdigest(), action, self.lf, self.lf_size))
+                        return True
+                    else:
+                        printdebug("File hash and date match, skipping %s",(self.lf))
+                        return False
+        except KeyError, e:
+            printdebug("File does not exist, %s %s (%dK)",(action, self.lf, self.lf_size))
             return True
     def doSync(self):
         printdebug('Syncing from %s => %s', (self.source,self.destination))
         if self.direction == 'to':
+            self.total_files = len(self.local_file_list)
             for lf in self.local_file_list:
                 self.lf = lf.rstrip()
                 self.lf_hash = self.md5(self.lf)    
@@ -208,6 +237,7 @@ class Sync:
                     #We do nothing
                     pass
                 pass
+                self.file_number = self.file_number + 1
             for rf in self.remote_file_list:
                 try:
                     self.local_file_list[str(rf)]
@@ -217,26 +247,43 @@ class Sync:
                         self.removeCF(rf)
         elif self.direction == 'from':
             # Download from CF
-            pass
-        self.file_number = self.file_number + 1
+            self.total_files = len(self.remote_file_list)
+            for rf in self.remote_file_list:
+                self.lf = self.destination +  rf
+                self.lf_hash = self.md5(self.lf) 
+                try:
+                    self.lf_size = os.stat(self.lf).st_size/1024
+                except OSError:
+                    self.lf_size = 0
+                if(self.checkFile(f=rf) == True):
+                    self.download(rf)
+                self.file_number = self.file_number + 1
     def upload(self):
         u = c.container.create_object(self.lf)
-        u.load_from_filename(self.lf,callback=callback)
-        callback(u.size,u.size)
+        u.load_from_filename(self.lf,callback=self.callback)
+        self.callback(u.size,u.size)
+    def download(self,file):
+        u = c.container.get_object(file)
+        try:
+            u.save_to_filename(self.lf,callback=self.callback)
+        except IOError:
+            printdebug("Creating %s",os.path.dirname(self.lf))
+            os.makedirs(os.path.dirname(self.lf))
+            u.save_to_filename(self.lf,callback=self.callback)
+        #callback(u.size,u.size)
     def removeCF(self,file):
         c.container.delete_object(file)
-        
-def callback(done,total):
-    """This function does nothing more than print out a % completed to STDOUT"""
-    if (c.config['gen_verbose'] == True) or (c.config['gen_progress'] == True):
-        try:
-            sys.stdout.write("\r %d completed of %d - %d%% (%d of %d)" %(done,total, int((float(done)/float(total))*100), file_number, len(local_file_list)))
-        except ZeroDivisionError:
-            sys.stdout.write("\r %d completed of %d - %d%% (%d of %d)" %(done,total, int((float(done)/1)*100), file_number, len(local_file_list)))
-        sys.stdout.flush()
-        if ( done == total ):
-            sys.stdout.write("\n")
-            sys.stdout.flush
+    def callback(self,done,total):
+        """This function does nothing more than print out a % completed to STDOUT"""
+        if (c.config['gen_verbose'] == True) or (c.config['gen_progress'] == True):
+            try:
+                sys.stdout.write("\r %d completed of %d - %d%% (%d of %d)" %(done,total, int((float(done)/float(total))*100), self.file_number, self.total_files))
+            except ZeroDivisionError:
+                sys.stdout.write("\r %d completed of %d - %d%% (%d of %d)" %(done,total, int((float(done)/1)*100), self.file_number, self.total_files))
+            sys.stdout.flush()
+            if ( done == total ):
+                sys.stdout.write("\n")
+                sys.stdout.flush
 
 def remove_cf(remote_file):
     backup_container.delete_object(remote_file)
@@ -245,22 +292,9 @@ def printdebug(m,mv=()):
         print m % mv
 def mainLoop():
     global c
-    global local_file_list
-    global remote_file_list
-    global file_number
     c = Config()
     s = Sync()
-    # Putting this here until code is cleaned up
-    local_file_list = s.local_file_list
-    remote_file_list = s.remote_file_list
-    file_number = s.file_number
     s.doSync()
-    #for remote_file in remote_file_list:
-    #    try:
-    #        local_file_list[str(remote_file)]
-    #    except:
-    #        if c.config['dest_remove'] == True:
-    #            printdebug("Removing %s",remote_file)
-    #            remove_cf(remote_file)
+
 if __name__ == "__main__":
     mainLoop()
