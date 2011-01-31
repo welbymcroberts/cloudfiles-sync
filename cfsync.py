@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import cloudfiles
 import sys,os
-import ConfigParser 
+import ConfigParser
 import math
 import optparse
 import re
@@ -45,8 +45,8 @@ class Config:
             print 'local = ' + self.config['local']
             print 'Direction = ' + self.config['dir']
         self.getContainer()
-        
-        
+
+
     def get(self,section,option,destination,required=False):
         """Wrapper arround ConfigParser.get that will asign a defaul if declaration is not mandatory"""
         try:
@@ -56,7 +56,7 @@ class Config:
             except:
                 #We're not going to complain if the values arn't in the file
                 pass
-            
+
             #Try overriding the values with optparse
             try:
                 if (eval('self.op_results.%s' % destination) != None):
@@ -65,25 +65,27 @@ class Config:
                 #No Key, no point in doing anything!
                 pass
             self.config[destination]
-            
+
         except:
             try:
                 self.config[destination] = eval('self.op_results.%s' % destination)
             except Exception, e:
-                print e
                 if required == True:
                     print "[%s]%s Not found, please edit your config file, or supply this as a command line option" % (section,option)
                     sys.exit(1)
 
     def checkApi(self):
         """Checks to ensure that the API details are within limits"""
-        if len(self.config['api_key']) < 8:
-            print "Your API Key does not look right. Please re-check!"
+        try:
+            if len(self.config['api_key']) < 8:
+                print "Your API Key does not look right. Please re-check!"
+                sys.exit(1)
+            if len(self.config['api_username']) < 2:
+                print "Your API Username does not look right. Please re-check!"
+                sys.exit(1)
+        except:
+            print "Did you provide your API details via the CLI or %s ?" % os.path.expanduser('~/.cfsync.ini')
             sys.exit(1)
-        if len(self.config['api_username']) < 2:
-            print "Your API Username does not look right. Please re-check!"
-            sys.exit(1)
-
     def optionParserSetup(self):
         """Setup the options for optparser"""
         self.op.add_option('-u','--username', dest="api_username", help="API Username (ex: 'welby.mcroberts')")
@@ -130,6 +132,9 @@ class FileList:
                 sys.exit(1)
             for root,dirs,files in os.walk(path,followlinks=c.config['gen_follow']):
                 for local_file in files:
+                    local_file = os.path.normpath(local_file)
+                    root = os.path.normpath(root)
+                    root = root.replace('\\','/')
                     self.file_list[root+'/'+local_file.rstrip()] = { 'name': root+'/'+local_file}
     def getRemoteFiles(self,marker=None):
         return self.container.list_objects_info(marker=marker)
@@ -191,10 +196,9 @@ class Sync:
         try:
             #TODO: Clean this up
             if self.direction == 'from':
-                f2 = f.replace('//','/')
-                f2 = f2.replace('./','/')
-                
-                if(self.local_file_list[str(self.destination+f2)]):
+                if sys.platform.startswith == 'win':
+                    self.destination = self.destination.replace('/','\\')
+                if(self.local_file_list[str(self.destination+f)]):
                     gr = os.stat(self.lf).st_mtime
                     lt = self.remote_file_list[f]['last_modified']
                     if lt < gr :
@@ -229,7 +233,7 @@ class Sync:
             self.total_files = len(self.local_file_list)
             for lf in self.local_file_list:
                 self.lf = lf.rstrip()
-                self.lf_hash = self.md5(self.lf)    
+                self.lf_hash = self.md5(self.lf)
                 self.lf_size=os.stat(self.lf).st_size/1024
                 if(self.checkFile() == True):
                     self.upload()
@@ -250,7 +254,7 @@ class Sync:
             self.total_files = len(self.remote_file_list)
             for rf in self.remote_file_list:
                 self.lf = self.destination +  rf
-                self.lf_hash = self.md5(self.lf) 
+                self.lf_hash = self.md5(self.lf)
                 try:
                     self.lf_size = os.stat(self.lf).st_size/1024
                 except OSError:
@@ -259,10 +263,14 @@ class Sync:
                     self.download(rf)
                 self.file_number = self.file_number + 1
     def upload(self):
+        if sys.platform.startswith('win'):
+            self.lf.replace('/','\\')
         u = c.container.create_object(self.lf)
         u.load_from_filename(self.lf,callback=self.callback)
         self.callback(u.size,u.size)
     def download(self,file):
+        if sys.platform.startswith('win'):
+            file.replace('/','\\')
         u = c.container.get_object(file)
         try:
             u.save_to_filename(self.lf,callback=self.callback)
