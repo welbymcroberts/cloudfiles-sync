@@ -29,16 +29,20 @@ class Config:
         self.get('general','progress','gen_progress',False)
         self.get('general','follow_links','gen_follow',False)
         rex = re.compile("cf://(.*)$")
-        m = rex.findall(self.op_args[0])
-        m2 = rex.findall(self.op_args[1])
-        if(m):
-            #we've got a CLI override of cloudfiles contianer
-            self.config['container_name'] = m[0]
-            self.config['local'] = self.op_args[1]
-            self.config['dir'] = 'from'
-        elif(m2):
-            self.config['local'] = self.op_args[0]
-            self.config['container_name'] = m2[0]
+        try:
+            m = rex.findall(self.op_args[0])
+            m2 = rex.findall(self.op_args[1])
+            if(m):
+                #we've got a CLI override of cloudfiles contianer
+                self.config['container_name'] = m[0]
+                self.config['local'] = self.op_args[1]
+                self.config['dir'] = 'from'
+            elif(m2):
+                self.config['local'] = self.op_args[0]
+                self.config['container_name'] = m2[0]
+                self.config['dir'] = 'to'
+        except:
+            # We didn't get any cli options
             self.config['dir'] = 'to'
         if(self.config['gen_verbose'] == True):
             print 'Container = ' + self.config['container_name']
