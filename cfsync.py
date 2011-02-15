@@ -19,6 +19,7 @@ class Config:
         self.get('api','username','api_username',True)
         self.get('api','key','api_key',True)
         self.get('api','url','api_url',True)
+	self.get('source','source','source_local',True)
         self.checkApi()
         self.get('destination','container','container_name',True)
         #TODO return contianer object ?
@@ -43,6 +44,7 @@ class Config:
                 self.config['dir'] = 'to'
         except:
             # We didn't get any cli options
+	    self.config['local'] = self.config['source_local'] 
             self.config['dir'] = 'to'
         if(self.config['gen_verbose'] == True):
             print 'Container = ' + self.config['container_name']
