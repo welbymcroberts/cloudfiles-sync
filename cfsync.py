@@ -22,7 +22,7 @@ class Config:
 	self.get('source','source','source_local',True)
         self.checkApi()
         self.get('destination','container','container_name',True)
-        #TODO return contianer object ?
+        #TODO return container object ?
         self.get('general','md5','gen_md5',False)
         self.get('general','verbose','gen_verbose',False)
         self.get('general','stdin','gen_stdin',False)
@@ -54,7 +54,7 @@ class Config:
 
 
     def get(self,section,option,destination,required=False):
-        """Wrapper arround ConfigParser.get that will asign a defaul if declaration is not mandatory"""
+        """Wrapper arround ConfigParser.get that will asign a default if declaration is not mandatory"""
         try:
             #Try getting the vars from config ini file
             try:
