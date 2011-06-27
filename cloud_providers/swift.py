@@ -8,7 +8,7 @@ __author__ = 'Welby.McRoberts'
 
 class Swift(CloudProvider):
     def __init__(self, username=None, api_key=None, timeout=5, servicenet=False,
-                 useragent='com.github.welbymcroberts.cloudfiles-sync'):
+                 useragent='com.github.welbymcroberts.cloudfiles-sync', auth_url=cloudfiles.uk_authurl):
         """
         Accepts keyword args for Swift Username and API Key
 
@@ -23,15 +23,16 @@ class Swift(CloudProvider):
         @type timeout: int
         @param timeout: Timeout value in seconds for a request
         """
-        self.connection = None
+        self.connection_pool = None
         self.username = username
         self.api_key = api_key
         self.servicenet = servicenet
         self.user_agent = useragent
         self.timeout = timeout
+        self.auth_url = auth_url
 
 
-    def connect(self, pool=False, pool_count=5):
+    def connect(self, pool=True, pool_count=5):
         """
         Spins up the connection(s) to Swift
 
@@ -46,19 +47,22 @@ class Swift(CloudProvider):
             self.pool_count = pool_count
         else:
             self.pool_count = 1
-        _log.debug('Connecting to SWIFT')
+        _log.info('Connecting to SWIFT')
         try:
+            _log.debug('User: %s, api_key: %s, timeout: %d, poolsize: %d, authurl: %s' %(self.username, self.api_key, self.timeout, self.pool_count, self.auth_url))
             self.connection_pool = cloudfiles.ConnectionPool(username=self.username,api_key=self.api_key,
                                                          timeout=self.timeout,poolsize=self.pool_count)
+            self.connection_pool.connargs['authurl'] = self.auth_url
             i=1
             connections = []
             while i <= pool_count:
+                _log.debug('Connecting to SWIFT - connection %d' % (i) )
                 self.connection_pool.get()
                 i += 1
-        except cloudfiles.errors.AuthenticationError:
-            self.errors.AuthenticationError('Eep')
-        except cloudfiles.errors.AuthenticationFailed:
-            self.errors.AuthenticationFailed('Moo')
+        except cloudfiles.errors.AuthenticationError as e:
+            self.AuthenticationError()
+        except cloudfiles.errors.AuthenticationFailed as e:
+            self.AuthenticationFailed()
 
     def get(self,container,remote,local):
         """
@@ -72,10 +76,53 @@ class Swift(CloudProvider):
         @param local: Local file name
         """
 
-        connection = self.pool.get()
-        connection.get_container(container).get_object(remote).save_to_filename(local,callback=self.callback)
-        self.pool.put(connection)
+        try:
+            _log.debug('Getting Connection')
+            connection = self.connection_pool.get()
+            _log.info('Saving cf://%s:%s to %s' %(container,remote,local))
+            connection.get_container(container).get_object(remote).save_to_filename(local,callback=self.callback)
+            self.callback100(remote)
+        except cloudfiles.errors.InvalidContainerName as e:
+            """
+            Raised if a invalid contianer name has been used
+            """
+            self.InvalidContainerName()
+        except cloudfiles.errors.NoSuchContainer as e:
+            """
+            Raised if a invalid contianer name has been used
+            """
+            self.NoSuchContainer(False)
+            self.get(container,remote,local)
+        except cloudfiles.errors.InvalidObjectName as e:
+            """
+            Raised if a invalid contianer name has been used
+            """
+            self.InvalidObjectName()
+        finally:
+            _log.debug('Returning Connection to the pool')
+            self.connection_pool.put(connection)
+
+    def createContainer(self,name):
+        """
+        Create a container
         
+        @type name: str
+        @param name: Container Name
+        """
+        try:
+            _log.debug('Getting Connection')
+            connection = self.connection_pool.get()
+            _log.debug('Creating %s' % (name))
+            connection.create_container(name)
+        except cloudfiles.errors.InvalidContainerName:
+            """
+            Raised if a invalid contianer name has been used
+            """
+            self.InvalidContainerName()
+        finally:
+            _log.debug('Returning Connection to the pool')
+            self.connection_pool.put(connection)
+
     def put(self,container,local,remote):
         """
         Preforms the Put/Upload of file
@@ -87,6 +134,28 @@ class Swift(CloudProvider):
         @type local: str
         @param local: Local file name
         """
-        connection = self.pool.get()
-        connection.get_container(container).create_object(remote).load_from_filename(local,callback=self.callback)
-        self.pool.put(connection)
+        try:
+            _log.debug('Getting Connection')
+            connection = self.connection_pool.get()
+            _log.info('Saving cf://%s:%s to %s' %(container,remote,local))
+            connection.get_container(container).create_object(remote).load_from_filename(local,callback=self.callback)
+            self.callback100(remote)
+        except cloudfiles.errors.InvalidContainerName as e:
+            """
+            Raised if a invalid contianer name has been used
+            """
+            self.InvalidContainerName()
+        except cloudfiles.errors.NoSuchContainer as e:
+            """
+            Raised if a invalid contianer name has been used
+            """
+            self.NoSuchContainer(container)
+            self.put(container,local,remote)
+        except cloudfiles.errors.InvalidObjectName as e:
+            """
+            Raised if a invalid contianer name has been used
+            """
+            self.InvalidObjectName()
+        finally:
+            _log.debug('Returning Connection to the pool')
+            self.connection_pool.put(connection)

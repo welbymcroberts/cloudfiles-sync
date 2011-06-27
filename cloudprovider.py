@@ -7,36 +7,53 @@ class CloudProvider():
     """
     Base class for Cloudproviders
     """
-    class errors:
-        def AuthenticationFailed(self,Error):
-            """
-            Raised when Authentication Fails - Usually wrong login details
-            """
-            _log.critical('Authentication Failure - Exiting')
-            sys.exit(1)
-        def AuthenticationError(self,Error):
-            """
-            Raised when Authentication Has an error, for an unknown reason
-            """
-            _log.critical('Authentication Failure Check your Username/Password/API Details- Exiting')
-            sys.exit(1)
+    def AuthenticationFailed(self):
+        """
+        Raised when Authentication Fails - Usually wrong login details
+        """
+        _log.critical('Authentication Failure - Exiting')
+        sys.exit(1)
+    def AuthenticationError(self):
+        """
+        Raised when Authentication Has an error, for an unknown reason
+        """
+        _log.critical('Authentication Failure Check your Username/Password/API Details- Exiting')
+        sys.exit(1)
 
-        def NoSuchContainer(self,Error):
-            """
-            Raised when A request for an unknown container occurs
-            """
+    def NoSuchContainer(self,container_name):
+        """
+        Raised when A request for an unknown container occurs
+        """
+        if container_name == False:
             _log.warn("Container/Bucket doesn't exist")
-        
+        else:
+            _log.warn("Container/Bucket doesn't exist - creating")
+            self.createContainer(container_name)
+    def InvalidContainerName(self):
+        """
+        Raised when a request for a container that has a bad name is made
+        """
+        _log.critical("Container/Bucket name is invalid - Exiting")
+        sys.exit(1)
+    def InvalidObjectName(self):
+        """
+        Raised when a request for an invalid object occurs
+        """
+        _log.warn("File does not exist")
     def callback(self,done,total):
         """
-        This function does nothing more than print out a % completed to STDOUT
+        This function does nothing more than print out a % completed to INFO
         """
         try:
-            sys.stdout.write("\r %d completed of %d - %d%% (%d of %d)" %(done,total, int((float(done)/float(total))*100), self.file_number, self.total_files))
+            _log.debug("%d completed of %d - %d%%" %(done,total, int((float(done)/float(total))*100)))
         except ZeroDivisionError:
-            sys.stdout.write("\r %d completed of %d - %d%% (%d of %d)" %(done,total, int((float(done)/1)*100), self.file_number, self.total_files))
-        sys.stdout.flush()
+            _log.debug("%d completed of %d - %d%%" %(done,total, int((float(done)/1)*100)))
         if done == total:
-            sys.stdout.write("\n")
-            sys.stdout.flush()
+            _log.debug("%d completed of %d - %d%%" %(done,total, 100))
+    def callback100(self,remote):
+        """
+        This function does nothing more than print out a 100% completed to INFO
+        """
+        _log.info("%s completed" %(remote))
+
 
