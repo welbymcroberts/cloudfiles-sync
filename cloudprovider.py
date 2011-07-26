@@ -1,8 +1,7 @@
 import sys
 from log import Logging
-__author__ = 'Welby.McRoberts'
-_logger = Logging()
-_log = _logger.log
+
+_log = Logging().log
 class CloudProvider():
     """
     Base class for Cloudproviders

@@ -1,5 +1,4 @@
 import logging
-__author__ = 'Welby.McRoberts'
 
 class Logging():
     """
