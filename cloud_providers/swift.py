@@ -6,7 +6,7 @@ _log = Logging().log
 
 class Swift(CloudProvider):
     def __init__(self, username=None, api_key=None, timeout=5, servicenet=False,
-                 useragent='com.whmcr.cloudfiles-sync', auth_url=cloudfiles.uk_authurl):
+                 useragent='com.whmcr.cloudsync', auth_url=cloudfiles.uk_authurl):
         """
         Accepts keyword args for Swift Username and API Key
 
