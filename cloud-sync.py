@@ -4,7 +4,7 @@ import optparse
 from cloud_providers.swift import *
 from file_lists.local import *
 from file_lists.swift import *
-
+from urllib import quote
 
 def setup_logging(console_level="WARNING",file_level="WARNING",file_name="cloud-sync.log"):
     _logger = Logging()
@@ -101,7 +101,7 @@ def main():
     #cp = SwiftList(clouds,op_results.container)
     #fl.compare(cp.file_list)
     for file in source['list'].sync_list:
-        clouds['swift'].put(dest['container'],source['container']+file,file)
+        clouds['swift'].put(dest['container'],source['container']+file,quote(file,'/'))
 
 if __name__ == '__main__':
     main()
