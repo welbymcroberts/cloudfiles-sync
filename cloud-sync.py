@@ -5,6 +5,39 @@ from cloud_providers.swift import *
 from file_lists.local import *
 from file_lists.swift import *
 from urllib import quote
+import os
+import sys
+import threading
+from Queue import Queue
+
+class Worker(threading.Thread):
+    def __init__(self):
+        self._log = Logging().log
+        threading.Thread.__init__(self)
+        self.kill_received = False
+        self.runno = 0
+
+    def run(self):
+        while not self.kill_received:
+            self.work()
+
+    def work(self):
+        task = q.get()
+        if task['direction'] == 'get':
+            self._log.debug('Run %d' % self.runno)
+            task['clouds']['swift'].get(task['source']['container'],quote(task['file'],'/'),
+                                task['dest']['container']+task['file'])
+            self.runno += 1
+        elif task['direction'] == 'put':
+            self._log.debug('Run %d' % self.runno)
+            task['clouds']['swift'].put(task['dest']['container'],task['source']['container']+task['file'],
+                                quote(task['file'],'/'))
+            self.runno += 1
+        elif task['direction'] == 'kill':
+                self.kill_received = True
+
+
+
 
 def setup_logging(console_level="WARNING",file_level="WARNING",file_name="cloud-sync.log"):
     _logger = Logging()
@@ -36,6 +69,8 @@ def setup_config():
                        default=config_get(cp,'general','log_file','/var/log/cloud-sync.log'))
     general.add_option('-m','--md5', dest="md5", help="Enable MD5 Comparison",
                        default=config_get(cp,'general','md5',True))
+    general.add_option('-T','--threads', dest="numthreads", help="Number of Threads",
+                       default=config_get(cp,'general','numthreads',1))
     api = op.add_option_group('API')
     api.add_option('-u','--username', dest="username", help="API Username (ex: 'welby.mcroberts')",
                    default=config_get(cp,'api','username','I_HAVE_NOT_SET_MY_USER_NAME'))
@@ -97,43 +132,36 @@ def main():
     dest = setup_dest(clouds,op_results,op_args)
     source['list'].compare(dest['list'].file_list)
 
-    #fl = DirectoryList('/home/welby/Pictures/')
-    #cp = SwiftList(clouds,op_results.container)
-    #fl.compare(cp.file_list)
+    threads =[]
+    for i in op_results.numthreads:
+        t = Worker()
+        threads.append(t)
+        t.start()
+    threads = [t.join(1) for t in threads if t is not None and t.isAlive()]
     if dest['type'] == 'swift':
         for file in source['list'].sync_list:
-            clouds['swift'].put(dest['container'],source['container']+file,quote(file,'/'))
+            q.put({'direction': 'put', 'source': source, 'dest': dest, 'file': file, 'clouds': clouds })
     else:
         for file in source['list'].sync_list:
-            clouds['swift'].get(source['container'],quote(file,'/'),dest['container']+file)
+            q.put({'direction': 'get', 'source': source, 'dest': dest, 'file': file, 'clouds': clouds })
+    q.put({'direction': 'kill'})
+    while len(threads) > 0:
+        try:
+            threads = [t.join(1) for t in threads if t is not None and t.isAlive()]
+        except KeyboardInterrupt:
+            for t in threads:
+                t.kill_received = True
+
+
 if __name__ == '__main__':
+    q = Queue()
     main()
-    
+
 #q = Queue()
 #q.put({'container': container,'direction': 'put', 'remote': remote, 'local': local})
 #q.put({'container': container,'direction': 'get', 'remote': remote, 'local': local})
 #q.put({'direction': 'kill'})
 #q.put({'direction': 'kill'})
-#class CSThread(threading.Thread):
-#
-#    def __init__ (self):
-#        from log import Logging
-#        self._log = Logging().log
-#        self.runno = 0
-#        threading.Thread.__init__(self)
-#    def run(self):
-#        while True:
-#            task = q.get()
-#            if task['direction'] == 'get':
-#                self._log.debug('Run %d' % self.runno)
-#                swift.get(task['container'],task['remote'],task['local'])
-#                self.runno += 1
-#            elif task['direction'] == 'put':
-#                self._log.debug('Run %d' % self.runno)
-#                swift.put(task['container'],task['local'],task['remote'])
-#                self.runno += 1
-#            elif task['direction'] == 'kill':
-#                sys.exit()
 #threads = []
 #for i in range(5):
 #    threads.append(CSThread())
