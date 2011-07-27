@@ -21,7 +21,8 @@ def config_get(cp,section,name,default):
         return default
 
 def setup_config():
-    op = optparse.OptionParser()
+    usage = "usage: %prog [options] source destination"
+    op = optparse.OptionParser(usage=usage)
     cp = ConfigParser.ConfigParser()
     cp.read(['/etc/cloud-sync/cloudsync.ini', os.path.expanduser('~/.cloudsync.ini') ])
     general = op.add_option_group('General')
@@ -53,6 +54,8 @@ def setup_config():
     api.add_option('-z','--useragent',dest="useragent",help='Override Useragent',
                    default=config_get(cp,'api','useragent','com.whmcr.cloudsync'))
     (op_results,op_args) = op.parse_args()
+    if len(op_args) != 2:
+       op.error("Incorrect number of arguments")
     return (op_results,op_args)
 
 def setup_clouds(op_results,op_args):
