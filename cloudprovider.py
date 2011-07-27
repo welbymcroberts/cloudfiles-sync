@@ -22,6 +22,9 @@ class CloudProvider():
     def NoSuchContainer(self,container_name):
         """
         Raised when A request for an unknown container occurs
+
+        @type container_name: str
+        @param container_name: Swift Container Name
         """
         if container_name == False:
             _log.warn("Container/Bucket doesn't exist")
@@ -42,6 +45,11 @@ class CloudProvider():
     def callback(self,done,total):
         """
         This function does nothing more than print out a % completed to INFO
+
+        @type done: int
+        @param done: Ammount of bytes completed
+        @type total: int
+        @param total: Ammount of bytes in total
         """
         try:
             _log.debug("%d completed of %d - %d%%" %(done,total, int((float(done)/float(total))*100)))
@@ -52,6 +60,9 @@ class CloudProvider():
     def callback100(self,remote):
         """
         This function does nothing more than print out a 100% completed to INFO
+
+        @type remote: str
+        @param remote: Remote file name
         """
         _log.info("%s completed" %(remote))
 

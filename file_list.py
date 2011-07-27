@@ -6,9 +6,21 @@ class FileList():
     Base class for FileLists
     """
     def add(self,file):
+        """
+        A small function to add the file to the sync list
+
+        @type file: str
+        @param file: File Name
+        """
         self.sync_list.append(file)
     def compare(self,other_list):
-        # TODO actually write the compare code
+        """
+        Compares two file lists
+
+        @type other_list: dict
+        @param other_list: A Dictionary of files from a FileList (specifcally FileList.file_list)
+        """
+
         self.sync_list = []
         for file in self.file_list:
             try:
@@ -33,6 +45,3 @@ class FileList():
             except KeyError:
                 _log.info('File %s not found in other file list - Adding to sync list' % file)
                 self.add(file)
-
-        #self.list_src
-        #self.list_dest
