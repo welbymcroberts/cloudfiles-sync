@@ -11,6 +11,7 @@ class SwiftList(FileList):
         self.container = container
         self.file_list = {}
         self.updateList()
+        self.md5 = True
     def updateList(self):
         fl = self.swift.getFullFileList(self.container)
         for file in fl:

@@ -100,9 +100,12 @@ def main():
     #fl = DirectoryList('/home/welby/Pictures/')
     #cp = SwiftList(clouds,op_results.container)
     #fl.compare(cp.file_list)
-    for file in source['list'].sync_list:
-        clouds['swift'].put(dest['container'],source['container']+file,quote(file,'/'))
-
+    if dest['type'] == 'swift':
+        for file in source['list'].sync_list:
+            clouds['swift'].put(dest['container'],source['container']+file,quote(file,'/'))
+    else:
+        for file in source['list'].sync_list:
+            clouds['swift'].get(source['container'],quote(file,'/'),dest['container']+file)
 if __name__ == '__main__':
     main()
     
