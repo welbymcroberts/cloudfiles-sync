@@ -17,6 +17,7 @@ https://github.com/welbymcroberts/cloudfiles-sync/wiki
 
 Example usage
 =============
+./cloud-sync /home/welby/Pictures/ swift://pictures
 
 Authors
 ===============

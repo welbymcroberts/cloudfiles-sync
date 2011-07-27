@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import ConfigParser
 import optparse
 from cloud_providers.swift import *
